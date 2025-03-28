@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import socket
+from dataclasses import dataclass
 from enum import Enum
+from hashlib import sha256
 
 PORT = 12345
 
 
 class HandSide(Enum):
-    LEFT = 'Left'
-    RIGHT = 'Right'
+    LEFT = b'Left'
+    RIGHT = b'Right'
 
 
 class AuthenticationStatus(Enum):
@@ -20,6 +22,39 @@ class AuthenticationStatus(Enum):
 class ClientRole(Enum):
     ADMIN = b'A'
     TARGET = b'T'
+
+
+@dataclass
+class Packet:
+    data_length: int
+    checksum: int
+    data: bytes
+
+    @classmethod
+    def build_packet(cls, data: bytes):
+        data_length = len(data)
+        checksum = cls.calculate_checksum(data)
+        return cls(data_length=data_length, checksum=checksum, data=data)
+
+    @staticmethod
+    def data_length_field_size() -> int:
+        return 4
+
+    @staticmethod
+    def checksum_field_size() -> int:
+        return 32
+
+    @staticmethod
+    def calculate_checksum(data: bytes) -> int:
+        return int(sha256(data).hexdigest(), 16)
+
+    def to_bytes(self) -> bytes:
+        return (self.data_length.to_bytes(self.data_length_field_size()) +
+                self.checksum.to_bytes(self.checksum_field_size()) +
+                self.data)
+
+    def validate(self) -> bool:
+        return self.calculate_checksum(self.data) == self.checksum
 
 
 class BaseVOSSSocket:
@@ -36,6 +71,19 @@ class BaseVOSSSocket:
 
     def __recv(self, size: int = 1024) -> bytes:
         return self.tcp_socket.recv(size)
+
+    def send_data(self, data: bytes):
+        packet = Packet.build_packet(data)
+        self.__send(packet.to_bytes())
+
+    def recv_data(self) -> bytes:
+        data_length = int.from_bytes(self.__recv(Packet.data_length_field_size()))
+        checksum = int.from_bytes(self.__recv(Packet.checksum_field_size()))
+        data = self.__recv(data_length)
+        packet = Packet(data_length, checksum, data)
+        if not packet.validate():
+            raise Exception("error - invalid checksum")
+        return data
 
 
 class VOSSSocketServer(BaseVOSSSocket):
@@ -68,8 +116,8 @@ class VOSSSocketClientTarget(VOSSSocketClient):
 
 
 class VOSSSocketClientAdmin(VOSSSocketClient):
-    def send_hand_side_auth_request(self, hand_side):
-        ...
+    def send_hand_side_auth_request(self, hand_side: HandSide):
+        self.send_data(hand_side.value)
 
     def recv_hand_side_auth_response(self):
         ...
