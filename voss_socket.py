@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+import random
+import string
 import socket
 from dataclasses import dataclass
 from enum import Enum
 from hashlib import sha256
+from pathlib import Path
+from urllib.request import FTPHandler
+
+from ftplib import FTP
+
+from pyftpdlib.authorizers import DummyAuthorizer
+from pyftpdlib.handlers import FTPHandler
+from pyftpdlib.servers import FTPServer
 
 PORT = 12345
 
@@ -87,6 +97,8 @@ class BaseVOSSSocket:
 
 
 class VOSSSocketServer(BaseVOSSSocket):
+    ftp_server: FTPServer
+
     def accept(self) -> tuple[VOSSSocketConnection, tuple[str, int]]:
         conn, address = self.tcp_socket.accept()
         role = ClientRole(conn.recv(1))
@@ -94,29 +106,71 @@ class VOSSSocketServer(BaseVOSSSocket):
             voss_conn = VOSSSocketConnectionAdmin(conn)
         elif role == ClientRole.TARGET:
             voss_conn = VOSSSocketConnectionTarget(conn)
+        else:
+            raise Exception("Unknown Client Role")
         return voss_conn, address
+
+    def init_socket(self, host: str = '0.0.0.0'):
+        self.bind_and_listen(host)
+        self.run_ftp_server(host)
 
     def bind_and_listen(self, host: str) -> None:
         self.tcp_socket.bind((host, PORT))
         self.tcp_socket.listen(5)
 
+    def run_ftp_server(self, host: str):
+        # Instantiate an authorizer object to manage authentication
+        authorizer = DummyAuthorizer()
+
+        # Add user permission
+        # Arguments: user, password, directory, permission
+        # 'elradfmw' gives full permissions (read/write) on the given directory
+        authorizer.add_user("user", "password", "C:\Ftp", perm="elradfmw")
+
+        # Create an FTP handler instance to handle FTP requests
+        handler = FTPHandler
+        handler.authorizer = authorizer
+
+        # Create the FTP server
+        self.ftp_server = FTPServer((host, 21), handler)  # Listen on all interfaces on port 21
+
+        # Start the server
+        self.ftp_server.serve_forever(blocking=False)
+
 
 class VOSSSocketClient(BaseVOSSSocket):
+    ftp_client: FTP
+
     def connect(self, host: str) -> None:
         self.tcp_socket.connect((host, PORT))
 
+        ftp = FTP()
+        ftp.connect(host, 21)
+        ftp.login('user', 'password')
+
 
 class VOSSSocketClientTarget(VOSSSocketClient):
+    def upload_file(self, file_path: Path, filename_in_server: str):
+        with open(file_path, 'rb') as f:
+            self.ftp_client.storbinary(f"STOR {filename_in_server}", f)
+
     def recv_take_screenshot_request(self) -> None:
         if self.recv_data() != b'Take screenshot':
             raise Exception('Request should be "Take screenshot"')
 
-    def send_take_screenshot_response(self, screenshot_filename: str) -> None:
-        # TODO send screenshot file uploaded to the FTP server
-        ...
+    def send_take_screenshot_response(self, screenshot_path: Path) -> None:
+        screenshot_extension = screenshot_path.suffix
+        random_filename = ''.join(random.choices(string.ascii_letters + string.digits, k=16)) + screenshot_extension
+
+        self.upload_file(screenshot_path, random_filename)
+        self.send_data(random_filename.encode())
 
 
 class VOSSSocketClientAdmin(VOSSSocketClient):
+    def download_file(self, filename: str, output_path: Path) -> None:
+        with open(output_path, 'wb') as f:
+            self.ftp_client.retrbinary(f'RETR {filename}', f.write)
+
     def send_hand_side_auth_request(self, hand_side: HandSide):
         self.send_data(hand_side.value)
 
@@ -126,9 +180,9 @@ class VOSSSocketClientAdmin(VOSSSocketClient):
     def send_screenshot_from_target_request(self, target_ip: str) -> None:
         self.send_data(target_ip.encode())
 
-    def recv_screenshot_from_target_response(self) -> str:
-        # TODO return the name of the screenshot file in the FTP server
-        ...
+    def recv_screenshot_from_target_response(self, output_path: Path) -> None:
+        screenshot_filename = self.recv_data().decode()
+        self.download_file(screenshot_filename, output_path)
 
 
 class VOSSSocketConnection(BaseVOSSSocket):
@@ -139,11 +193,12 @@ class VOSSSocketConnection(BaseVOSSSocket):
 
 class VOSSSocketConnectionTarget(VOSSSocketConnection):
     def send_take_screenshot_request(self):
-        ...
+        self.send_data(b'Take screenshot')
 
     def recv_take_screenshot_response(self) -> str:
-        # TODO return the name of the screenshot file from the FTP server
-        ...
+        filename_in_ftp_server = self.recv_data().decode()
+        # TODO Check that file exists in ftp server
+        return filename_in_ftp_server
 
 
 class VOSSSocketConnectionAdmin(VOSSSocketConnection):
@@ -155,8 +210,31 @@ class VOSSSocketConnectionAdmin(VOSSSocketConnection):
         self.send_data(authentication_status.value)
 
     def recv_screenshot_from_target_request(self) -> str:
-        # TODO return the target ip address
-        ...
+        target_ip = self.recv_data().decode()
+        return target_ip
 
     def send_screenshot_from_target_response(self, screenshot_filename: str) -> None:
-        ...
+        self.send_data(screenshot_filename.encode())
+
+# 1. send_screenshot_from_target_request    admin -> server
+#
+# 2. recv_screenshot_from_target_request    server
+#
+# 3. send_take_screenshot_request           server -> target
+#
+# 4. recv_take_screenshot_request           target
+#
+# 5. send_take_screenshot_response          target -> server
+#
+# 6. recv_take_screenshot_response          server
+#
+# 7. send_screenshot_from_target_response   server -> admin
+#
+# 8. recv_screenshot_from_target_response   admin
+
+# Screenshot between 4 & 5
+# 5. FTP Upload
+# 8. FTP Download
+
+# filename = target_conn.recv_take_screenshot_response()
+# admin_conn.send_screenshot_from_target_response(filename)
