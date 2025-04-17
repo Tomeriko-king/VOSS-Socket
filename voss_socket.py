@@ -108,7 +108,8 @@ class VOSSSocketClient(BaseVOSSSocket):
 
 class VOSSSocketClientTarget(VOSSSocketClient):
     def recv_take_screenshot_request(self) -> None:
-        ...
+        if self.recv_data() != b'Take screenshot':
+            raise Exception('Request should be "Take screenshot"')
 
     def send_take_screenshot_response(self, screenshot_filename: str) -> None:
         # TODO send screenshot file uploaded to the FTP server
@@ -119,11 +120,11 @@ class VOSSSocketClientAdmin(VOSSSocketClient):
     def send_hand_side_auth_request(self, hand_side: HandSide):
         self.send_data(hand_side.value)
 
-    def recv_hand_side_auth_response(self):
-        ...
+    def recv_hand_side_auth_response(self) -> AuthenticationStatus:
+        return AuthenticationStatus(self.recv_data())
 
     def send_screenshot_from_target_request(self, target_ip: str) -> None:
-        ...
+        self.send_data(target_ip.encode())
 
     def recv_screenshot_from_target_response(self) -> str:
         # TODO return the name of the screenshot file in the FTP server
@@ -147,10 +148,11 @@ class VOSSSocketConnectionTarget(VOSSSocketConnection):
 
 class VOSSSocketConnectionAdmin(VOSSSocketConnection):
     def recv_hand_side_auth_request(self) -> 'HandSide':
-        ...
+        received_hand_side = self.recv_data()
+        return HandSide(received_hand_side)
 
     def send_hand_side_auth_response(self, authentication_status: AuthenticationStatus) -> None:
-        ...
+        self.send_data(authentication_status.value)
 
     def recv_screenshot_from_target_request(self) -> str:
         # TODO return the target ip address
