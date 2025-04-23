@@ -8,6 +8,7 @@ from enum import Enum
 from hashlib import sha256
 from pathlib import Path
 from urllib.request import FTPHandler
+import os
 
 from ftplib import FTP
 
@@ -197,7 +198,13 @@ class VOSSSocketConnectionTarget(VOSSSocketConnection):
 
     def recv_take_screenshot_response(self) -> str:
         filename_in_ftp_server = self.recv_data().decode()
-        # TODO Check that file exists in ftp server
+
+        files = os.listdir("C:\Ftp")
+        if filename_in_ftp_server in files:
+            print("file upload approved! exists in server.")
+        else:
+            raise Exception('file is not located in the ftp server."')
+
         return filename_in_ftp_server
 
 
