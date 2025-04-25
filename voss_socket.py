@@ -128,7 +128,7 @@ class VOSSSocketServer(BaseVOSSSocket):
         # Add user permission
         # Arguments: user, password, directory, permission
         # 'elradfmw' gives full permissions (read/write) on the given directory
-        authorizer.add_user("user", "password", FTP_HOMEDIR, perm="elradfmw")
+        authorizer.add_user("V_client_OSS", "VoSsI", FTP_HOMEDIR, perm="elradfmw")
 
         # Create an FTP handler instance to handle FTP requests
         handler = FTPHandler
@@ -138,7 +138,7 @@ class VOSSSocketServer(BaseVOSSSocket):
         self.ftp_server = FTPServer((host, 21), handler)  # Listen on all interfaces on port 21
 
         # Start the server
-        self.ftp_server.serve_forever(blocking=False)
+        self.ftp_server.serve_forever(blocking=False, timeout=1)
 
 
 class VOSSSocketClient(BaseVOSSSocket):
@@ -149,7 +149,7 @@ class VOSSSocketClient(BaseVOSSSocket):
 
         ftp = FTP()
         ftp.connect(host, 21)
-        ftp.login('user', 'password')
+        ftp.login('V_client_OSS', 'VoSsI')
 
 
 class VOSSSocketClientTarget(VOSSSocketClient):
