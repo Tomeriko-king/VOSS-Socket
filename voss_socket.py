@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 from hashlib import sha256
 from pathlib import Path
+from typing import Final
 from urllib.request import FTPHandler
 import os
 
@@ -16,7 +17,8 @@ from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
 
-PORT = 12345
+PORT: Final[int] = 12345
+FTP_HOMEDIR: Final[str] = "C:\Ftp"
 
 
 class HandSide(Enum):
@@ -126,7 +128,7 @@ class VOSSSocketServer(BaseVOSSSocket):
         # Add user permission
         # Arguments: user, password, directory, permission
         # 'elradfmw' gives full permissions (read/write) on the given directory
-        authorizer.add_user("user", "password", "C:\Ftp", perm="elradfmw")
+        authorizer.add_user("user", "password", FTP_HOMEDIR, perm="elradfmw")
 
         # Create an FTP handler instance to handle FTP requests
         handler = FTPHandler
@@ -199,9 +201,7 @@ class VOSSSocketConnectionTarget(VOSSSocketConnection):
     def recv_take_screenshot_response(self) -> str:
         filename_in_ftp_server = self.recv_data().decode()
 
-        files = [f for f in os.listdir('your_directory_path') if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
-
-        if filename_in_ftp_server in files:
+        if filename_in_ftp_server in os.listdir(FTP_HOMEDIR):
             print("file upload approved! exists in server.")
         else:
             raise Exception('file is not located in the ftp server."')
