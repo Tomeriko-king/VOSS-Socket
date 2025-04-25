@@ -199,7 +199,8 @@ class VOSSSocketConnectionTarget(VOSSSocketConnection):
     def recv_take_screenshot_response(self) -> str:
         filename_in_ftp_server = self.recv_data().decode()
 
-        files = os.listdir("C:\Ftp")
+        files = [f for f in os.listdir('your_directory_path') if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
+
         if filename_in_ftp_server in files:
             print("file upload approved! exists in server.")
         else:
