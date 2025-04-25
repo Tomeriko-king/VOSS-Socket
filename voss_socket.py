@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 from hashlib import sha256
 from pathlib import Path
+from threading import Thread
 from typing import Final
 from urllib.request import FTPHandler
 import os
@@ -138,7 +139,8 @@ class VOSSSocketServer(BaseVOSSSocket):
         self.ftp_server = FTPServer((host, 21), handler)  # Listen on all interfaces on port 21
 
         # Start the server
-        self.ftp_server.serve_forever(blocking=False, timeout=1)
+        ftp_thread = Thread(target=self.ftp_server.serve_forever)
+        ftp_thread.start()
 
 
 class VOSSSocketClient(BaseVOSSSocket):
