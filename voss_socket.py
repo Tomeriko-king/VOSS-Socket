@@ -100,7 +100,7 @@ class BaseVOSSSocket:
 class VOSSSocketServer(BaseVOSSSocket):
     ftp_server: FTPServer
 
-    def accept(self) -> tuple[VOSSSocketConnection, tuple[str, int]]:
+    def accept(self) -> tuple[ClientRole, VOSSSocketConnection, tuple[str, int]]:
         conn, address = self.tcp_socket.accept()
         role = ClientRole(conn.recv(1))
         if role == ClientRole.ADMIN:
