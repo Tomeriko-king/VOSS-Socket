@@ -148,10 +148,14 @@ class VOSSSocketClient(BaseVOSSSocket):
 
     def connect(self, host: str) -> None:
         self.tcp_socket.connect((host, PORT))
+        self.tcp_socket.send(self.get_client_role().value)
 
         ftp = FTP()
         ftp.connect(host, 21)
         ftp.login('V_client_OSS', 'VoSsI')
+
+    def get_client_role(self) -> ClientRole:
+        raise NotImplementedError
 
 
 class VOSSSocketClientTarget(VOSSSocketClient):
@@ -169,6 +173,9 @@ class VOSSSocketClientTarget(VOSSSocketClient):
 
         self.upload_file(screenshot_path, random_filename)
         self.send_data(random_filename.encode())
+
+    def get_client_role(self) -> ClientRole:
+        return ClientRole.TARGET
 
 
 class VOSSSocketClientAdmin(VOSSSocketClient):
@@ -188,6 +195,9 @@ class VOSSSocketClientAdmin(VOSSSocketClient):
     def recv_screenshot_from_target_response(self, output_path: Path) -> None:
         screenshot_filename = self.recv_data().decode()
         self.download_file(screenshot_filename, output_path)
+
+    def get_client_role(self) -> ClientRole:
+        return ClientRole.ADMIN
 
 
 class VOSSSocketConnection(BaseVOSSSocket):
