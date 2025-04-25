@@ -103,7 +103,7 @@ class BaseVOSSSocket:
 class VOSSSocketServer(BaseVOSSSocket):
     ftp_server: FTPServer
 
-    def accept(self) -> tuple[ClientRole, VOSSSocketConnection, tuple[str, int]]:
+    def accept(self) -> tuple[VOSSSocketConnection, ClientRole, tuple[str, int]]:
         conn, address = self.tcp_socket.accept()
         role = ClientRole(conn.recv(1))
         if role == ClientRole.ADMIN:
@@ -112,7 +112,7 @@ class VOSSSocketServer(BaseVOSSSocket):
             voss_conn = VOSSSocketConnectionTarget(conn)
         else:
             raise Exception("Unknown Client Role")
-        return voss_conn, address
+        return voss_conn, role, address
 
     def init_socket(self, host: str = '0.0.0.0'):
         self.bind_and_listen(host)
