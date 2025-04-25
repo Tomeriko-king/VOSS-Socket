@@ -150,9 +150,9 @@ class VOSSSocketClient(BaseVOSSSocket):
         self.tcp_socket.connect((host, PORT))
         self.tcp_socket.send(self.get_client_role().value)
 
-        ftp = FTP()
-        ftp.connect(host, 21)
-        ftp.login('V_client_OSS', 'VoSsI')
+        self.ftp_client = FTP()
+        self.ftp_client.connect(host, 21)
+        self.ftp_client.login('V_client_OSS', 'VoSsI')
 
     def get_client_role(self) -> ClientRole:
         raise NotImplementedError
