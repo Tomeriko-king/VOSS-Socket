@@ -23,14 +23,14 @@ FTP_HOMEDIR: Final[str] = "C:\Ftp"
 
 
 class HandSide(Enum):
-    LEFT = b'Left'
-    RIGHT = b'Right'
+    LEFT = b'12'
+    RIGHT = b'34'
 
 
 class AuthenticationStatus(Enum):
-    RECEIVED_OK = b'OK'
-    RECEIVED_FAILED = b'FAILED'
-    RECEIVED_PASSED = b'PASSED'
+    RECEIVED_OK = b'O1K'
+    RECEIVED_FAILED = b'F2AI2LED'
+    RECEIVED_PASSED = b'P3AS3SED'
 
 
 class ClientRole(Enum):
